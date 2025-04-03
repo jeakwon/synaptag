@@ -1,3 +1,6 @@
+import math
+import torch
+import torch.nn as nn
 import torch.autograd as autograd
 
 class GetSubnet(autograd.Function):
@@ -53,7 +56,7 @@ class SupermaskLinear(nn.Linear):
         w = self.weight * subnet
         return F.linear(x, w, self.bias)
 
-# SupermaskNet 클래스 수정
+# SupermaskNet class
 class SupermaskNet(nn.Module):
     def __init__(self, base_model, sparsity, layer_wise=True):
         super().__init__()

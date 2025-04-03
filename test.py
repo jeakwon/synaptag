@@ -1,1 +1,3 @@
-print(1)
+from supermask import SupermaskNet
+
+print(SupermaskNet)
