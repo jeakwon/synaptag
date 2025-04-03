@@ -1,4 +1,3 @@
-from copy import deepcopy
 import torch.autograd as autograd
 
 class GetSubnet(autograd.Function):
