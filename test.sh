@@ -1,6 +1,6 @@
 #!/bin/bash -l
-#SBATCH -o /ptmp/jekwo/2025/logs/synaptag/envsetup%j.out
-#SBATCH -e /ptmp/jekwo/2025/logs/synaptag/envsetup%j.err
+#SBATCH -o /ptmp/jekwo/2025/logs/synaptag/%j.out
+#SBATCH -e /ptmp/jekwo/2025/logs/synaptag/%j.err
 #SBATCH -J synaptag
 #SBATCH --nodes=1
 #SBATCH --ntasks=1

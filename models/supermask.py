@@ -82,7 +82,7 @@ class SupermaskNet(nn.Module):
         if self.layer_wise:
             for name, module in self.named_modules():
                 if isinstance(module, (SupermaskConv, SupermaskLinear)):
-                    abs_scores = module.scores.abs().flatten()
+                    abs_scores = module.scores.detach().abs().flatten()
                     _, idx = abs_scores.sort()
                     j = int(self._sparsity * abs_scores.numel())
                     module.threshold = abs_scores[idx[j]]
@@ -92,7 +92,7 @@ class SupermaskNet(nn.Module):
             all_scores = []
             for name, module in self.named_modules():
                 if isinstance(module, (SupermaskConv, SupermaskLinear)):
-                    abs_scores = module.scores.abs().flatten()
+                    abs_scores = module.scores.detach().abs().flatten()
                     all_scores.append(abs_scores)
             all_scores = torch.cat(all_scores)
             _, idx = all_scores.sort()

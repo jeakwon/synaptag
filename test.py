@@ -1,69 +1,38 @@
-from models.zoo import SupermaskResNet18CIFAR10, SupermaskResNet50CIFAR10, SupermaskResNet18CIFAR100, SupermaskResNet50CIFAR100
-model = SupermaskResNet18CIFAR10(sparsity=0.01, layer_wise=True)
-# model = SupermaskResNet18CIFAR100(sparsity=0.01, layer_wise=True)
-# model = SupermaskResNet50CIFAR10(sparsity=0.01, layer_wise=True)
-# model = SupermaskResNet50CIFAR100(sparsity=0.01, layer_wise=True)
 
+from models.pretrained import ResNet18CIFAR10, ResNet50CIFAR10, ResNet18CIFAR100, ResNet50CIFAR100
+from models.supermask import SupermaskNet
 from datasets import cifar10_dataloaders, cifar100_dataloaders
-train_loader, val_loader, test_loader = cifar10_dataloaders()
-# train_loader, val_loader, test_loader = cifar100_dataloaders()
+from evaluate import get_labels_and_preds, get_overall_accuracy, get_confusion_matrix, get_class_wise_accuracy, get_class_group_accuracy
+from unlearning.random_labels import unlearn_one_epoch_with_random_labels
+from unlearning.gradient_ascent import unlearn_one_epoch_with_gradient_ascent
 
-from evaluate import get_labels_and_preds
+from copy import deepcopy
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+
+torch.autograd.set_detect_anomaly(True)
+base_model = ResNet18CIFAR10()
+model = SupermaskNet(deepcopy(base_model), sparsity=0.01, layer_wise=True).cuda()
+train_loader, val_loader, test_loader = cifar10_dataloaders()
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=0.05)
+
+forget_classes = [0]
+retain_classes = [1,2,3,4,5,6,7,8,9]
 
 labels, preds = get_labels_and_preds(model, test_loader)
+class_wise_acc = get_class_wise_accuracy(labels, preds)
+print(class_wise_acc)
 
-print(labels[:10], preds[:10])
-print("successful")
+unlearn_one_epoch_with_gradient_ascent(retain_classes, forget_classes, model, train_loader, criterion, optimizer, device='cuda')
 
+labels, preds = get_labels_and_preds(model, test_loader)
+class_wise_acc = get_class_wise_accuracy(labels, preds)
+print(class_wise_acc)
 
-
-# import torch
-# import numpy as np
-# from sklearn.metrics import confusion_matrix
-# import seaborn as sns
-# import matplotlib.pyplot as plt
-
-# def get_confusion_matrix(model, test_loader, num_classes=10):
-#     # Set model to evaluation mode
-#     model.eval()
-    
-#     # Lists to store predictions and true labels
-#     all_preds = []
-#     all_labels = []
-    
-#     # Disable gradient computation for evaluation
-#     with torch.no_grad():
-#         for images, labels in test_loader:
-#             # Move to GPU if available
-#             if torch.cuda.is_available():
-#                 images = images.cuda()
-#                 labels = labels.cuda()
-            
-#             # Get model predictions
-#             outputs = model(images)
-#             _, preds = torch.max(outputs, 1)
-            
-#             # Store predictions and labels
-#             all_preds.extend(preds.cpu().numpy())
-#             all_labels.extend(labels.cpu().numpy())
-    
-#     # Create confusion matrix
-#     cm = confusion_matrix(all_labels, all_preds)
-    
-#     return cm
-
-# # Get the confusion matrix
-# confusion_mat = get_confusion_matrix(model.cuda(), test_loader)
-
-# # Optional: Visualize the confusion matrix
-# plt.figure(figsize=(10, 8))
-# sns.heatmap(confusion_mat, annot=True, fmt='d', cmap='Blues')
-# plt.title('Confusion Matrix for SupermaskResNet18CIFAR10')
-# plt.ylabel('True Label')
-# plt.xlabel('Predicted Label')
-# # plt.show()
-# plt.savefig('test.png')
-
-# # Print the confusion matrix
-# print("Confusion Matrix:")
-# print(confusion_mat)
+# cm = get_confusion_matrix(labels, preds)
+# acc = get_overall_accuracy(labels, preds)
+# retain_acc = get_class_group_accuracy(labels, preds, retain_classes)
+# forget_acc = get_class_group_accuracy(labels, preds, forget_classes)
