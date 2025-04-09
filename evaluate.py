@@ -27,7 +27,7 @@ def get_confusion_matrix(true_labels, pred_labels):
     return confusion_matrix(true_labels, pred_labels)
 
 def get_overall_accuracy(true_labels, pred_labels):
-    return np.mean(true_labels == pred_labels)
+    return float(np.mean(true_labels == pred_labels))
 
 def get_class_wise_accuracy(true_labels, pred_labels, target_classes=None):
     unique_classes = np.unique(true_labels)
@@ -65,4 +65,12 @@ def get_class_group_accuracy(true_labels, pred_labels, target_classes=None):
     else:
         group_accuracy = 0.0
     
-    return group_accuracy
+    return float(group_accuracy)
+
+def get_unlearning_accuracy(retain_classes, forget_classes, model, data_loader):
+    labels, preds = get_labels_and_preds(model, data_loader)
+    retain_acc = get_class_group_accuracy(labels, preds, retain_classes)
+    forget_acc = get_class_group_accuracy(labels, preds, forget_classes)
+    rfa = retain_acc - forget_acc
+    return retain_acc, forget_acc, rfa
+        

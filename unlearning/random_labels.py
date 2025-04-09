@@ -1,7 +1,9 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 
-def unlearn_one_epoch_with_random_labels(retain_classes, forget_classes, model, dataloader, criterion, optimizer, device='cuda'):
+def unlearn_one_epoch_with_random_labels(retain_classes, forget_classes, model, dataloader, optimizer, device='cuda'):
     model.train()
     total_loss = 0.0
     total_forget_loss = 0.0
@@ -28,26 +30,28 @@ def unlearn_one_epoch_with_random_labels(retain_classes, forget_classes, model, 
         total_forget_samples += forget_mask.sum().item()
         
         if forget_mask.sum() > 0:
-            num_forget = forget_mask.sum().item()
+            num_forget_samples = forget_mask.sum().item()
+            forget_labels = labels[forget_mask].cpu().numpy()
+            random_labels = []
             
-            random_labels = torch.tensor(
-                np.random.choice(candidate_classes, size=num_forget),
-                dtype=torch.long,
-                device=device
-            )
+            for orig_label in forget_labels:
+                available_classes = [c for c in all_classes if c != orig_label]
+                random_label = np.random.choice(available_classes)
+                random_labels.append(random_label)
             
+            random_labels = torch.tensor(random_labels, dtype=torch.long, device=device)
             labels[forget_mask] = random_labels
         
         optimizer.zero_grad()
         outputs = model(images)
         
         if retain_mask.any():
-            retain_loss = criterion(outputs[retain_mask], labels[retain_mask])
+            retain_loss = F.cross_entropy(outputs[retain_mask], labels[retain_mask])
         else:
             retain_loss = torch.tensor(0.0, device=device)
         
         if forget_mask.any():
-            forget_loss = criterion(outputs[forget_mask], labels[forget_mask])
+            forget_loss = F.cross_entropy(outputs[forget_mask], labels[forget_mask])
         else:
             forget_loss = torch.tensor(0.0, device=device)
         
