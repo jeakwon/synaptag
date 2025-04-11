@@ -22,6 +22,7 @@ class Unlearner:
         self.device = device
         
         self.unlearn_methods = {
+            'random_pruning': None,
             'random_labels': unlearn_one_epoch_with_random_labels,
             'gradient_ascent': unlearn_one_epoch_with_gradient_ascent,
             'chance_level': unlearn_one_epoch_with_chance_level
@@ -30,6 +31,7 @@ class Unlearner:
             raise ValueError(f"Method must be one of {list(self.unlearn_methods.keys())}")
         
         os.makedirs(os.path.dirname(self.save_path), exist_ok=True)
+        torch.save(self.model.state_dict(), self.save_path)
 
     def run(self, forget_classes):
         retain_classes = [i for i in range(len(self.train_loader.dataset.classes)) if i not in forget_classes]
@@ -41,9 +43,10 @@ class Unlearner:
         best_rfa = baseline_rfa
         best_epoch = 0
         epochs_without_improvement = 0
-        torch.save(self.model.state_dict(), self.save_path)
 
         unlearn_fn = self.unlearn_methods[self.method]
+        if unlearn_fn is None:
+            return None
         for epoch in range(1, self.epochs + 1):
             total_loss, retain_loss, forget_loss = unlearn_fn(retain_classes, forget_classes, self.model, self.train_loader, self.optimizer, device=self.device)
             retain_acc, forget_acc, rfa = get_unlearning_accuracy(retain_classes, forget_classes, self.model, self.valid_loader)

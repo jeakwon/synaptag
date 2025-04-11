@@ -23,7 +23,7 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 # 기본 모델 및 데이터 설정
-base_model = ResNet18CIFAR10()
+base_model = ResNet18CIFAR100()
 sparsity_values = [0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
 seeds = [42, 123, 777]  # 사용할 3개의 랜덤 시드
 
@@ -32,7 +32,7 @@ forget_classes = [0]
 retain_classes = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 # 데이터로더 생성
-train_loader, val_loader, test_loader = cifar10_dataloaders()
+train_loader, val_loader, test_loader = cifar100_dataloaders()
 
 # sparsity별로 시드에 따른 결과 저장
 retain_accs_per_sparsity = {sparsity: [] for sparsity in sparsity_values}
@@ -57,43 +57,52 @@ for sparsity in sparsity_values:
 avg_retain_accs = []
 avg_forget_accs = []
 std_retain_accs = []
-std_forget_accs = []
 
 for sparsity in sparsity_values:
     avg_retain = np.mean(retain_accs_per_sparsity[sparsity])
     avg_forget = np.mean(forget_accs_per_sparsity[sparsity])
     std_retain = np.std(retain_accs_per_sparsity[sparsity])
-    std_forget = np.std(forget_accs_per_sparsity[sparsity])
     
     avg_retain_accs.append(avg_retain)
     avg_forget_accs.append(avg_forget)
     std_retain_accs.append(std_retain)
-    std_forget_accs.append(std_forget)
-    print(f"Sparsity: {sparsity:.4f} | Avg Retain Acc.: {avg_retain:10.2%} | Avg Forget Acc.: {avg_forget:10.2%} | Std Retain: {std_retain:.4f} | Std Forget: {std_forget:.4f}")
+    print(f"Sparsity: {sparsity:.4f} | Avg Retain Acc.: {avg_retain:10.2%} | Avg Forget Acc.: {avg_forget:10.2%} | Std Retain: {std_retain:.4f}")
 
-# Matplotlib으로 평균 retain vs forget 그래프 그리기 (선 연결, 크기로 오차 범위)
+# 점 크기 스케일링 (가장 작은 std를 5~10으로 클램핑)
+min_size = 5  # 최소 크기
+max_size = 100  # 최대 크기
+min_std = min(std_retain_accs)
+max_std = max(std_retain_accs)
+
+if max_std > min_std:  # std가 모두 동일하지 않은 경우
+    sizes = [min_size + (max_size - min_size) * (std - min_std) / (max_std - min_std) for std in std_retain_accs]
+else:  # std가 모두 동일한 경우
+    sizes = [min_size] * len(std_retain_accs)
+
+# Matplotlib으로 평균 retain vs forget 그래프 그리기 (로그 스케일)
 plt.figure(figsize=(8, 8))  # 정사각형 비율 설정
 
-# 선으로 연결
-plt.plot(avg_retain_accs, avg_forget_accs, color='blue', linestyle='-', linewidth=2)
+# 선으로 연결 (회색 점선)
+plt.plot(avg_retain_accs, avg_forget_accs, color='gray', linestyle='--', linewidth=2)
 
-# 점 크기로 오차 범위 표시 (표준편차를 크기로 변환)
-sizes = [std * 1000 for std in std_retain_accs]  # 표준편차를 점 크기로 스케일링 (조정 가능)
-plt.scatter(avg_retain_accs, avg_forget_accs, s=sizes, color='blue', alpha=0.5)
+# 점 크기로 오차 범위 표시 (회색)
+plt.scatter(avg_retain_accs, avg_forget_accs, s=sizes, color='gray', alpha=0.5)
 
 # 각 점에 sparsity 값 라벨 추가
 for i, sparsity in enumerate(sparsity_values):
     plt.annotate(f"{sparsity:.4f}", (avg_retain_accs[i], avg_forget_accs[i]), textcoords="offset points", xytext=(0, 10), ha='center')
 
-# 축 설정 (0~1 범위, 퍼센트로 표시)
+# 축 설정 (로그 스케일, 0.1~1.0 범위, 퍼센트로 표시)
 plt.xlabel('Retain Accuracy (%)')
 plt.ylabel('Forget Accuracy (%)')
-plt.title('Avg Retain vs Avg Forget Accuracy with Sparsity (3 Seeds)')
-plt.xlim(0, 1)
-plt.ylim(0, 1)
-plt.xticks(np.arange(0, 1.1, 0.1), [f"{x:.0%}" for x in np.arange(0, 1.1, 0.1)])
-plt.yticks(np.arange(0, 1.1, 0.1), [f"{x:.0%}" for x in np.arange(0, 1.1, 0.1)])
+plt.title('Avg Retain vs Avg Forget Accuracy with Sparsity (3 Seeds, Log Scale)')
+plt.xscale('log')
+plt.yscale('log')
+plt.xlim(0.01, 1)  # 10% ~ 100%
+plt.ylim(0.01, 1)  # 10% ~ 100%
+plt.xticks([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], [f"{x:.0%}" for x in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]])
+plt.yticks([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], [f"{x:.0%}" for x in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]])
 plt.grid(True, which="both", ls="--")
 plt.gca().set_aspect('equal', adjustable='box')  # 정사각형 대칭 보장
-plt.savefig('avg_retain_vs_forget_sparsity_line_plot.png')  # 그래프를 파일로 저장
+plt.savefig('avg_retain_vs_forget_sparsity_log_scale.png')  # 그래프를 파일로 저장
 plt.show()  # 그래프 표시
